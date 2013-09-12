@@ -163,7 +163,7 @@ architecture rtl of vuprom_TAPSMaster is
 --+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
 --     CLOCK 
 --+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
-	signal clk50, clk100, clk200, clk400: std_logic;
+	signal clk50, clk100, clk200, clk400, clk1, clk0_5: std_logic;
 	signal clk_rst, clk_locked: std_logic_vector ( 3 downto 0);
 
 	COMPONENT clock_boost
@@ -175,7 +175,9 @@ architecture rtl of vuprom_TAPSMaster is
 		CLK50MHz_OUT : OUT std_logic;
 		CLK100MHz_OUT : OUT std_logic;
 		CLK200MHz_OUT : OUT std_logic;
-		CLK400MHz_OUT : OUT std_logic
+		CLK400MHz_OUT : OUT std_logic;
+		clock1MHz_OUT : out  STD_LOGIC;
+		clock0_5Hz_OUT : out  STD_LOGIC
 		);
 	END COMPONENT;
  
@@ -215,7 +217,6 @@ architecture rtl of vuprom_TAPSMaster is
 	--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
 
 
-	signal vhdc_out : std_logic_vector ( 3*32-1 downto 0);
 	signal vhdc_in	: std_logic_vector (4*32-1 downto 0);
 	--
 	signal count 	:	std_logic_vector (23 downto 0);
@@ -229,7 +230,7 @@ architecture rtl of vuprom_TAPSMaster is
 	--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
 
 	signal scal_data_o1, scal_data_o2 : std_logic_vector(31 downto 0);
-	constant SCCH: integer := 68;
+	constant SCCH: integer := 96;
 	constant SCBit: integer := 32;
 	signal scal_in1, scal_in2 : std_logic_vector(SCCH-1 downto 0);
 	signal scal_oecsr1, scal_oecsr2 : std_logic;
@@ -259,14 +260,15 @@ architecture rtl of vuprom_TAPSMaster is
 	--     TRIGGER
 	--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
 	signal trig_data_o : std_logic_vector(31 downto 0);
-	signal trig_in : std_logic_vector( 3*32-1 downto 0);
+	signal trig_in : std_logic_vector( 4*32-1 downto 0);
 	signal trig_out_OUT1 : STD_LOGIC_VECTOR (31 downto 0); --To LVDS to NIM converter
+	signal trig_out_INOUT2 : STD_LOGIC_VECTOR (31 downto 0); -- To LVDS->NIM Converter for CPUs
 	signal trig_out_INOUT3 : STD_LOGIC_VECTOR (31 downto 0); -- To Multiplicity Trigger
 	signal trig_out_INOUT4 : STD_LOGIC_VECTOR (31 downto 0); -- To CB Experiment Trigger
 	signal trig_oecsr : std_logic;
 	signal trig_ckcsr : std_logic;
 	signal TAPSActualMode : std_logic;
-	signal TAPSExtraScaler : std_logic_vector(67 downto 0);
+	signal TAPSExtraScaler : std_logic_vector(95 downto 0);
 
 	component trigger
 		port (
@@ -274,14 +276,17 @@ architecture rtl of vuprom_TAPSMaster is
 			clock100 : in STD_LOGIC;
 			clock200 : in STD_LOGIC;
 			clock400 : in STD_LOGIC;
-			trig_in : in STD_LOGIC_VECTOR ( 32*3-1 downto 0);	
+			clock1 : in STD_LOGIC;
+			clock0_5 : in STD_LOGIC;
+			trig_in : in STD_LOGIC_VECTOR ( 32*4-1 downto 0);	
 			trig_out_OUT1 : out STD_LOGIC_VECTOR (31 downto 0); --To LVDS to NIM converter
+			trig_out_INOUT2 : out STD_LOGIC_VECTOR (31 downto 0); -- To LVDS->NIM Converter
 			trig_out_INOUT3 : out STD_LOGIC_VECTOR (31 downto 0); -- To Multiplicity Trigger
 			trig_out_INOUT4 : out STD_LOGIC_VECTOR (31 downto 0); -- To CB Experiment Trigger
 			nim_in   : in  STD_LOGIC;
 			nim_out  : out STD_LOGIC;
 			TAPSActualMode_Out : out STD_LOGIC;
-			ToScalerOut : out STD_LOGIC_VECTOR(67 downto 0);
+			ToScalerOut : out STD_LOGIC_VECTOR(95 downto 0);
 			led	     : out STD_LOGIC_VECTOR(8 downto 1); -- 8 LEDs onboard
 			pgxled   : out STD_LOGIC_VECTOR(8 downto 1); -- 8 LEDs on PIG board
 			Global_Reset_After_Power_Up : in std_logic;
@@ -313,7 +318,9 @@ begin ---- BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN -------
 		CLK200MHz_OUT => clk200,
 		CLK400MHz_OUT => clk400,
 		CLK_LOCKED_OUT => clk_locked,
-		CLK_RST_IN => clk_rst
+		CLK_RST_IN => clk_rst,
+		clock1MHz_OUT => clk1,
+		clock0_5Hz_OUT => clk0_5
 	);
 
 	------------------------------------------------------------------------------------------
@@ -353,7 +360,7 @@ begin ---- BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN -------
 	IACKOU	<= IACKII; 	-- interrupt acknowledge chain
 --		SRESI				-- system reset
 	CAIV		<=	'1';	-- clock for address ram0begister internal<-VME, disabled
-	OAIV		<=	'1';	-- OE for address register internal<-VME, disabled
+	OAIV		<=	'1';	-- OE for address register internal<-VME, disabled, '1' means high
 	IRBLO	<= '1';
 
 	
@@ -496,21 +503,13 @@ begin ---- BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN -------
 	--vhdc_in( 159 downto 128) <= PGIO2X ( 32 downto 1);
 	--vhdc_in( 191 downto 160) <= PGIO3X ( 32 downto 1);
 
-	OU1X( 32 downto 1)   <= vhdc_out ( 32*1-1 downto 0);
-	PGIO3X( 32 downto 1) <= vhdc_out ( 32*2-1 downto 32*1);
-	PGIO4X( 32 downto 1) <= vhdc_out ( 32*3-1 downto 32*2);
---	PGIO2X( 32 downto 1) <= vhdc_out ( 63 downto 32);
---	PGIO3X( 32 downto 1) <= vhdc_out ( 95 downto 64);
---	PGIO4X( 32 downto 1) <= vhdc_out ( 127 downto 96);
+	OU1X( 32 downto 1)   <= trig_out_OUT1;
+	PGIO2X( 32 downto 1) <= trig_out_INOUT2;
+	PGIO3X( 32 downto 1) <= trig_out_INOUT3;
+	PGIO4X( 32 downto 1) <= trig_out_INOUT4;
 
 --	LEMONIM<= tdc_tst_stop_o or trig_allor;
 --	LEMONIM<= tdc_tst_stop_o or LEMIN1;
-
-
---	vhdc_out <= tdc_tst_start_o or trig_out;
-
-	--vhdc_out <= trig_out(63 downto 32)&vmeaccess_out;
-	vhdc_out <= trig_out_INOUT4 & trig_out_INOUT3 & trig_out_OUT1;
 
 -- tdc i/o
 --	tdc_start( 127 downto 0)  <= vhdc_in( 127 downto 0) ;
@@ -523,12 +522,13 @@ begin ---- BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN -------
 
 -- scaler i/o
 	--scal_in(32*6-1 downto 0) <= vhdc_in( 32*6-1 downto 0);
-	scal_in1(67 downto 0) <= TAPSExtraScaler;
-	scal_in2(67 downto 0) <= "0000"&PGIO1X&TAPSExtraScaler(31 downto 0);
+	scal_in1(95 downto 0) <= TAPSExtraScaler;
+	scal_in2(67 downto 0) <= "0000"&PGIO1X&TAPSExtraScaler(31 downto 0); --Vorher für das SlowControl genutzt.
+	scal_in2(95 downto 68) <= (others => '0');
 	
 	
 -- trigger i/o
-	trig_in( 32*3-1 downto 0)  <= vhdc_in( 32*3-1 downto 0);
+	trig_in( 32*4-1 downto 0)  <= vhdc_in( 32*4-1 downto 0);
 	LEMOE <='1'; -- LEMTTL set to Z.
 	LEMOTTL <='0'; 
 	
@@ -625,8 +625,11 @@ begin ---- BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN -------
 			clock100=>clk100,
 			clock200=>clk200,
 			clock400=>clk400,
+			clock1 => clk1,
+			clock0_5 => clk0_5,
 			trig_in=>trig_in,
 			trig_out_OUT1=>trig_out_OUT1,
+			trig_out_INOUT2=>trig_out_INOUT2,
 			trig_out_INOUT3=>trig_out_INOUT3,
 			trig_out_INOUT4=>trig_out_INOUT4,
 			nim_in => LEMIN1,

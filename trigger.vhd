@@ -1,3 +1,6 @@
+--
+-- Peter-Bernd Otte
+--
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;																						
@@ -12,14 +15,17 @@ entity trigger is
 		clock100 : in STD_LOGIC;
 		clock200 : in STD_LOGIC;
 		clock400 : in STD_LOGIC; 
-		trig_in : in STD_LOGIC_VECTOR (32*3-1 downto 0);		
+		clock1 : in STD_LOGIC;
+		clock0_5 : in STD_LOGIC;
+		trig_in : in STD_LOGIC_VECTOR (32*4-1 downto 0);		
 		trig_out_OUT1 : out STD_LOGIC_VECTOR (31 downto 0); --To LVDS to NIM converter
+		trig_out_INOUT2 : out STD_LOGIC_VECTOR (31 downto 0); -- To LVDS->NIM Converter fpr CPUs
 		trig_out_INOUT3 : out STD_LOGIC_VECTOR (31 downto 0); -- To Multiplicity Trigger
-		trig_out_INOUT4 : out STD_LOGIC_VECTOR (31 downto 0); -- To CB Experiment Trigger
+		trig_out_INOUT4 : out STD_LOGIC_VECTOR (31 downto 0); -- To CB Exp Trigger
 		nim_in   : in  STD_LOGIC;
 		nim_out  : out STD_LOGIC;
 		TAPSActualMode_Out : out STD_LOGIC;
-		ToScalerOut : out STD_LOGIC_VECTOR(67 downto 0);
+		ToScalerOut : out STD_LOGIC_VECTOR(95 downto 0);
 		led	     : out STD_LOGIC_VECTOR(8 downto 1); -- 8 LEDs onboard
 		pgxled   : out STD_LOGIC_VECTOR(8 downto 1); -- 8 LEDs on PIG board
 		Global_Reset_After_Power_Up : in std_logic;
@@ -35,15 +41,18 @@ end trigger;
 architecture RTL of trigger is
 
 	subtype sub_Address is std_logic_vector(11 downto 4);
-	constant BASE_TRIG_TAPSActualMode : sub_Address							:= x"40"; --r/w
-	constant BASE_TRIG_TAPSDebugSignals : sub_Address						:= x"41"; --r
+	constant BASE_TRIG_FIXED : sub_Address 									:= x"f0" ; -- r
+	constant TRIG_FIXED_Master : std_logic_vector(31 downto 0)  		:= x"13091206";
+
+	constant BASE_TRIG_TAPSActualMode : sub_Address							:= x"30"; --r/w
+	constant BASE_TRIG_TAPSDebugSignals : sub_Address						:= x"31"; --r
 	
-	constant BASE_TRIG_CFDSectorMask : sub_Address 							:= x"50"; -- r/w
-	constant BASE_TRIG_LED1SectorMask : sub_Address 						:= x"51"; -- r/w
-	constant BASE_TRIG_LED2SectorMask : sub_Address 						:= x"52"; -- r/w
-	constant BASE_TRIG_VETOSectorMask : sub_Address 						:= x"53"; -- r/w
-	constant BASE_TRIG_PWOSectorMask : sub_Address 							:= x"54"; -- r/w
-	constant BASE_TRIG_PWOVETOSectorMask : sub_Address 					:= x"55"; -- r/w
+	constant BASE_TRIG_CFDSectorMask : sub_Address 							:= x"20"; -- r/w
+	constant BASE_TRIG_LED1SectorMask : sub_Address 						:= x"21"; -- r/w
+	constant BASE_TRIG_LED2SectorMask : sub_Address 						:= x"22"; -- r/w
+	constant BASE_TRIG_VETOSectorMask : sub_Address 						:= x"23"; -- r/w
+	constant BASE_TRIG_PWOSectorMask : sub_Address 							:= x"24"; -- r/w
+	constant BASE_TRIG_PWOVETOSectorMask : sub_Address 					:= x"25"; -- r/w
 	constant BASE_TRIG_PreScaleFactor_CFD_OR : sub_Address				:= x"10"; -- r/w
 	constant BASE_TRIG_PreScaleFactor_LED1_OR : sub_Address				:= x"11"; -- r/w
 	constant BASE_TRIG_PreScaleFactor_LED2_OR : sub_Address				:= x"12"; -- r/w
@@ -58,8 +67,39 @@ architecture RTL of trigger is
 	constant BASE_TRIG_PreScaleFactor_PWO_VETO_OR : sub_Address			:= x"1b"; -- r/w
 	constant BASE_TRIG_PreScaleFactor_PWO_VETO_M2Plus : sub_Address	:= x"1c"; -- r/w
 
-	constant BASE_TRIG_FIXED : sub_Address 								:= x"f0" ; -- r
-	constant TRIG_FIXED_Master : std_logic_vector(31 downto 0)  := x"12120505";
+	--Readout / Total Dead Time
+	constant BASE_TRIG_SelectIncludeCPU : sub_Address							:= x"40"; --r/w
+	constant BASE_TRIG_DisableTriggerSignal : sub_Address						:= x"41"; --r/w
+	constant BASE_TRIG_ResetVMEbusCPUsState : sub_Address 					:= x"43"; --w   <-- write a 0x1 to it
+	constant BASE_TRIG_SingleVMECPUsReadoutComplete_Local : sub_Address 	:= x"45"; --w  <-- acts like ACK of CBD
+	constant BASE_TRIG_ExpTrigger_Delayed_Local : sub_Address 				:= x"46"; --r  <-- acts like INT of CBD
+	--Delay: CPU Interrupt Signals
+	constant BASE_TRIG_CPUInterruptSignalsDelayTime_0 : sub_Address		:= x"50"; --r/w
+	constant BASE_TRIG_CPUInterruptSignalsDelayTime_1 : sub_Address		:= x"51"; --r/w
+	constant BASE_TRIG_CPUInterruptSignalsDelayTime_2 : sub_Address		:= x"52"; --r/w
+	constant BASE_TRIG_CPUInterruptSignalsDelayTime_3 : sub_Address		:= x"53"; --r/w
+	constant BASE_TRIG_CPUInterruptSignalsDelayTime_4 : sub_Address		:= x"54"; --r/w
+	constant BASE_TRIG_CPUInterruptSignalsDelayTime_5 : sub_Address		:= x"55"; --r/w
+	constant BASE_TRIG_CPUInterruptSignalsDelayTime_6 : sub_Address		:= x"56"; --r/w
+	constant BASE_TRIG_CPUInterruptSignalsDelayTime_7 : sub_Address		:= x"57"; --r/w
+	constant BASE_TRIG_CPUInterruptSignalsDelayTime_8 : sub_Address		:= x"58"; --r/w
+	constant BASE_TRIG_CPUInterruptSignalsDelayTime_9 : sub_Address		:= x"59"; --r/w
+	constant BASE_TRIG_CPUInterruptSignalsDelayTime_10 : sub_Address		:= x"5A"; --r/w
+	constant BASE_TRIG_CPUInterruptSignalsDelayTime_11 : sub_Address		:= x"5b"; --r/w
+	constant BASE_TRIG_CPUInterruptSignalsDelayTime_12 : sub_Address		:= x"5c"; --r/w
+	constant BASE_TRIG_CPUInterruptSignalsDelayTime_13 : sub_Address		:= x"5d"; --r/w
+
+	--debug
+	constant BASE_TRIG_Debug_ActualState : sub_Address							:= x"e0"; --r
+	constant BASE_TRIG_SelectedDebugInput_1 : sub_Address						:= x"e1"; --r/w
+	constant BASE_TRIG_SelectedDebugInput_2 : sub_Address						:= x"e2"; --r/w
+	constant BASE_TRIG_SelectedDebugInput_3 : sub_Address						:= x"e3"; --r/w
+	constant BASE_TRIG_SelectedDebugInput_4 : sub_Address						:= x"e4"; --r/w
+
+	--Event ID
+	constant BASE_TRIG_EventID_SetUserEventID : sub_Address					:= x"a0"; --r
+	constant BASE_TRIG_EventID_ResetSending : sub_Address						:= x"a1"; --w  --write 1 to it to reset
+	constant BASE_TRIG_EventID_ReadStatus : sub_Address						:= x"a2"; --r  
 
 	------------------------------------------------------------------------------
 	
@@ -94,7 +134,92 @@ architecture RTL of trigger is
 				  Sig_Out : out  STD_LOGIC);
 	end component;
 	
+	-----------------------------------------------------------------------------
+	-- All CPUs Readout
+	constant NVMEbusChs : integer := 14;
+	signal SingleVMECPUsReadoutComplete, SelectIncludeCPU : std_logic_vector(NVMEbusChs-1 downto 0);
+	signal BusyAllCPUs_Signal : std_logic;
+	signal ReadoutCompleteReset_Signal : std_logic;
+	signal ResetVMEbusCPUsState : std_logic;
+	signal SingleVMECPUsBusy : std_logic_vector(NVMEbusChs-1 downto 0);
+	--For VMECPU AcquRoot
+	signal SingleVMECPUsReadoutComplete_Local : std_logic; --needs to be w via VME
+	signal ExpTrigger_Delayed_Local : std_logic; --needs r via VME
+
+	COMPONENT AllCPUs
+		generic (
+			NVMEbusChs : integer
+		);
+    Port ( ExpTriggerIn : in  STD_LOGIC;
+				Interrupt_Delayed : out std_logic_vector(NVMEbusChs-1 downto 0);
+			  SingleVMECPUsReadoutComplete : in  STD_LOGIC_VECTOR(NVMEbusChs-1 downto 0);
+           ReadoutCompleteReset : out  STD_LOGIC;
+			  Reset : in std_logic;
+			  SingleVMECPUsBusy : out  STD_LOGIC_VECTOR(NVMEbusChs-1 downto 0);
+			  SelectIncludeCPU : in  STD_LOGIC_VECTOR(NVMEbusChs-1 downto 0);
+			  SelectInterruptDelayTimes : in std_logic_vector(NVMEbusChs*16-1 downto 0);
+           VMECPUsBusy : out  STD_LOGIC;
+			  clock100 : in  std_logic;
+			  Debug_Out : out std_logic_vector(NVMEbusChs-1 downto 0));
+	end COMPONENT;
+	--Delay of Interrupt signals to CPUs
+	signal CPUInterruptSignalsDelayTime : std_logic_vector(16*NVMEbusChs-1 downto 0);
+	COMPONENT DelayByCounterFixedWidth
+		Generic (
+			OutputTime : integer := 4
+		);
+		 Port ( Clock : in  STD_LOGIC;
+				  Input : in  STD_LOGIC;
+					DelayTime : in STD_LOGIC_VECTOR(15 downto 0);
+				  ExternalReset : in std_logic;
+				  DelayedOutput : out  STD_LOGIC);
+	end COMPONENT;
+	signal CPUInterruptSignalsDelayed : std_logic_vector(NVMEbusChs-1 downto 0);
+
+	----------------------------------------------------------------------------------
+	--Total Dead Time
+	signal TAPSTotalDeadTime_Signal : std_logic;
+	signal TAPSDisableTriggerSignal : std_logic := '1';
+
+	----------------------------------------------------------------------------------
+
 	------------------------------------------------------------------------------
+	-- DebugChSelector
+
+	COMPONENT DebugChSelector
+	PORT(
+		DebugSignalsIn : IN std_logic_vector(255 downto 0);
+		SelectedInput : IN std_logic_vector(8 downto 0);          
+		SelectedOutput : OUT std_logic
+		);
+	END COMPONENT;
+
+	constant NDebugSignalOutputs : integer := 4;
+	signal DebugSignals : std_logic_vector(255 downto 0);
+	signal SelectedDebugInput : std_logic_vector(9*NDebugSignalOutputs-1 downto 0);
+	signal Debug_ActualState : std_logic_vector(NDebugSignalOutputs-1 downto 0);
+	
+	------------------------------------------------------------------------------
+
+
+	------------------------------------------------------------------------------
+	-- EventID Sender
+	signal EventID_UserEventID : std_logic_vector(31 downto 0);
+	signal EventID_ResetSenderCounter : std_logic;
+	signal EventID_StatusCounter : std_logic_vector(7 downto 0);
+	signal EventID_OutputPin, EventID_FromExpTrigger : std_logic;
+
+	COMPONENT EventIDSender
+	PORT(
+		UserEventID : IN std_logic_vector(31 downto 0);
+		ResetSenderCounter : IN std_logic;
+		clock50 : IN std_logic;          
+		StatusCounter : OUT std_logic_vector(7 downto 0);
+		OutputPin : OUT std_logic
+		);
+	END COMPONENT;
+	----------------------------------------------------------------------------------------------
+
 
 	--Enable L1 Signals
 	signal CFDSectorMask, LED1SectorMask, LED2SectorMask, VetoSectorMask, PWOSectorMask, PWOVetoSectorMask : std_logic_vector(5 downto 0) := "111111";
@@ -123,16 +248,31 @@ architecture RTL of trigger is
 	
 	--
 	signal TAPSActualMode : std_logic := '0'; --0 = Stand alone, 1 = coupled mode
-	signal TAPSDebugSignals : std_logic_vector(31 downto 0); --0 used for status of TAPSbusy
+	signal TAPSDebugSignals : std_logic_vector(31 downto 0); --0 used for status of BusyAllCPUs_Signal
 
-	signal TAPSBusy, CBInterrupt, TAPSInterrupt : std_logic;
+	signal CBInterrupt, TAPSInterrupt : std_logic;
 	signal PulserOutput_PreScaled_ExtDelayed : std_logic;
 	signal TAPS_L1_Trigger : std_logic; --if TAPS saw an L1 event
-	signal TAPS_L1_Interrupt : std_logic; -- if TAPS L1 triggered and TAPSBusy = '0'
+	signal TAPS_L1_Interrupt : std_logic;
 	signal TAPS_L1_Interrupt_Delayed : std_logic; --delayed outside the VUPROM module
 	
 begin
-	TAPSBusy <= trig_in(11); --NIM_IN, Sector A
+	----------------------------------------------------------------------------------------------
+	-- EventID Sender
+
+	Inst_EventIDSender: EventIDSender PORT MAP(
+		StatusCounter => EventID_StatusCounter,
+		UserEventID => EventID_UserEventID,
+		ResetSenderCounter => EventID_ResetSenderCounter,
+		OutputPin => EventID_OutputPin,
+		clock50 => clock50
+	);
+	
+	EventID_FromExpTrigger <= trig_in(3*32+31);
+	trig_out_INOUT2(31) <= EventID_OutputPin when (TAPSActualMode = '0') else EventID_FromExpTrigger;
+	----------------------------------------------------------------------------------------------
+
+
 	CBInterrupt <= nim_in;
 	TAPS_L1_Interrupt_Delayed <= trig_in(11+16*1); --NIM_IN, Sector B
 	PulserOutput_PreScaled_ExtDelayed <= trig_in(11+16*5); --NIM_IN, Sector F
@@ -201,7 +341,7 @@ begin
 		Veto_TAPSOR_PreScaled or LED2_TAPSOR_PreScaled or LED1_TAPSOR_PreScaled or CFD_TAPSOR_PreScaled or
 		PWO_TAPSOR_PreScaled or PWO_Veto_TAPSOR_PreScaled or PWO_TAPSM2Plus_PreScaled or PWO_Veto_TAPSM2Plus_PreScaled;
 	
-	TAPS_L1_Interrupt <= TAPS_L1_Trigger when (TAPSBusy = '0') else '0';
+	TAPS_L1_Interrupt <= TAPS_L1_Trigger when (TAPSTotalDeadTime_Signal = '0') else '0';
 		
 	TAPSInterrupt <= TAPS_L1_Interrupt_Delayed when (TAPSActualMode = '0') else
 		CBInterrupt when (TAPSActualMode = '1')
@@ -214,9 +354,9 @@ begin
 	trig_out_OUT1(0) <= CFD_TAPSOR;
 	trig_out_OUT1(1) <= LED1_TAPSOR;
 	trig_out_OUT1(2) <= LED2_TAPSM2Plus;
-	trig_out_OUT1(3) <= TAPSBusy;
+	trig_out_OUT1(3) <= BusyAllCPUs_Signal;
 	trig_out_OUT1(4) <= TAPSActualMode;
-	trig_out_OUT1(5) <= not TAPSBusy;
+	trig_out_OUT1(5) <= TAPSTotalDeadTime_Signal;
 	trig_out_OUT1(12 downto 6) <= PulserOutput_PreScaled & PulserOutput_PreScaled & PulserOutput_PreScaled & PulserOutput_PreScaled & 
 		PulserOutput_PreScaled & PulserOutput_PreScaled & PulserOutput_PreScaled;
 	trig_out_OUT1(25 downto 13) <= TAPSInterrupt & TAPSInterrupt & TAPSInterrupt & TAPSInterrupt & TAPSInterrupt & TAPSInterrupt & TAPSInterrupt & TAPSInterrupt & 
@@ -236,11 +376,11 @@ begin
 	trig_out_INOUT4(6+5 downto 6) <= PWO_SectorORs;
 	trig_out_INOUT4(12+5 downto 12) <= VETO_SectorORs;
 	trig_out_INOUT4(18+5 downto 18) <= PWO_Veto_SectorORs;
-	trig_out_INOUT4(27 downto 24) <= "0000";
+	trig_out_INOUT4(27 downto 24) <= Debug_ActualState;
 	trig_out_INOUT4(28) <= TAPSInterrupt;
 	trig_out_INOUT4(29) <= LED2_TAPSM2Plus;
 	trig_out_INOUT4(30) <= PulserOutput_PreScaled_ExtDelayed;
-	trig_out_INOUT4(31) <= TAPSBusy;
+	trig_out_INOUT4(31) <= BusyAllCPUs_Signal;
 
 	--Signals to Multiplicity Trigger
 	trig_out_INOUT3(5+6*0 downto 6*0) <= CFD_SectorORs;
@@ -251,7 +391,7 @@ begin
 
 	
 	-- output to scalers
-	ToScalerOut(0) <= TAPSBusy;
+	ToScalerOut(0) <= BusyAllCPUs_Signal;
 	ToScalerOut(1) <= CBInterrupt;
 	ToScalerOut(2) <= CFD_TAPSOR;
 	ToScalerOut(3) <= LED1_TAPSOR;
@@ -284,8 +424,66 @@ begin
 	ToScalerOut(30) <= PWO_Veto_TAPSOR_PreScaled;
 	ToScalerOut(31) <= PWO_TAPSM2Plus_PreScaled;
 	
-	TAPSDebugSignals(0) <= TAPSBusy;
+	TAPSDebugSignals(0) <= BusyAllCPUs_Signal;
 	TAPSDebugSignals(1) <= CBInterrupt;
+
+
+	-----------------------------------------------------------------------------------------------
+	-- AllCPUs Readout
+	SingleVMECPUsReadoutComplete <= SingleVMECPUsReadoutComplete_Local & trig_in(32*3+(NVMEbusChs-1)-1 downto 32*3);  --INOUT 1
+	DebugSignals(143+(NVMEbusChs-1) downto 143) <= SingleVMECPUsReadoutComplete;
+	
+	Inst_AllCPUs: AllCPUs GENERIC MAP(
+		NVMEbusChs => NVMEbusChs
+	) PORT MAP(
+		ExpTriggerIn => TAPSInterrupt,
+		Interrupt_Delayed => CPUInterruptSignalsDelayed,
+		SingleVMECPUsReadoutComplete => SingleVMECPUsReadoutComplete,
+		ReadoutCompleteReset => ReadoutCompleteReset_Signal,
+		Reset => ResetVMEbusCPUsState, --for debug reasons, to trigger a Master Reset via VME bus
+		SingleVMECPUsBusy => SingleVMECPUsBusy,
+		SelectIncludeCPU => SelectIncludeCPU,  --- needs VME write
+		SelectInterruptDelayTimes => CPUInterruptSignalsDelayTime, --needs VME read/write
+		VMECPUsBusy => BusyAllCPUs_Signal,
+		clock100 => clock100,
+		Debug_Out => DebugSignals(185+(NVMEbusChs-1) downto 185)
+	);
+	DebugSignals(157+(NVMEbusChs-1) downto 157) <= SingleVMECPUsBusy;
+	DebugSignals(142) <= ReadoutCompleteReset_Signal;
+	DebugSignals(141) <= BusyAllCPUs_Signal;
+	DebugSignals(171+(NVMEbusChs-1) downto 171) <= CPUInterruptSignalsDelayed;
+	
+	trig_out_INOUT2(12 downto 0) <= CPUInterruptSignalsDelayed(12 downto 0);
+	ExpTrigger_Delayed_Local <= CPUInterruptSignalsDelayed(13);
+
+	Inst_CPUsLiveTime_Scalers : for i in 0 to NVMEbusChs-1 generate begin
+		ToScalerOut(68+i) <= clock1 when SingleVMECPUsBusy(i) = '0' else '0';
+	end generate;
+	ToScalerOut(68+NVMEbusChs) <= clock1 when TAPSTotalDeadTime_Signal = '0' else '0';
+	ToScalerOut(68+NVMEbusChs+1) <= clock1;
+
+
+	------------------------------------------------------------------------------------------------
+
+	------------------------------------------------------------------------------------------------
+	-- Total Dead Time
+	TAPSTotalDeadTime_Signal <= TAPSDisableTriggerSignal or BusyAllCPUs_Signal;
+	DebugSignals(65) <= TAPSTotalDeadTime_Signal;
+
+
+	-------------------------------------------------------------------------------------------------
+	-- Debug Selector
+	DebugChSelectors: for i in 0 to NDebugSignalOutputs-1 generate
+   begin
+		Inst_DebugChSelector: DebugChSelector PORT MAP(
+			DebugSignalsIn => DebugSignals,
+			SelectedInput => SelectedDebugInput((i+1)*9-1 downto i*9),  ---needs VME write
+			SelectedOutput => Debug_ActualState(i)
+		);
+	end generate;
+	trig_out_INOUT2(26+NDebugSignalOutputs-1 downto 26) <= Debug_ActualState;
+	-------------------------------------------------------------------------------------------------
+
 
 
 	------------------------------------------------------------------------------------------------
@@ -296,9 +494,10 @@ begin
 	led(4) <= '0';
 	led(5) <= '0' when (trig_in(31+2*32 downto 2*32) = x"00000000") else '1';
 	led(6) <= '0';
+	pgxled(1) <= '0' when (trig_in(31+3*32 downto 3*32) = x"00000000") else '1';
+	pgxled(2) <= '0';
 	led(8 downto 7) <= "00";
-	pgxled(4 downto 1) <= (others => '1');
-	pgxled(8 downto 5) <= (others => '0');
+	pgxled(8 downto 3) <= (others => '0');
 
 	------------------------------------------------------------------------------------------------
 	
@@ -340,7 +539,35 @@ begin
 			if (u_ad_reg(11 downto 4) =  BASE_TRIG_TAPSActualMode) then u_data_o(0) <= TAPSActualMode; end if;
 				
 			if (u_ad_reg(11 downto 4) =  BASE_TRIG_TAPSDebugSignals) then u_data_o <= TAPSDebugSignals; end if;
+			--Readout / Total Dead Time
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_SelectIncludeCPU) then 					u_data_o(NVMEbusChs-1 downto 0) <= SelectIncludeCPU; end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_DisableTriggerSignal) then 			u_data_o(0) <= TAPSDisableTriggerSignal; end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_ExpTrigger_Delayed_Local) then 		u_data_o(0) <= ExpTrigger_Delayed_Local; end if;
+			--CPU Interrupt Signals Delays
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_0) then 	u_data_o(15 downto 0) <= CPUInterruptSignalsDelayTime(16*0+15 downto 16*0); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_1) then 	u_data_o(15 downto 0) <= CPUInterruptSignalsDelayTime(16*1+15 downto 16*1); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_2) then 	u_data_o(15 downto 0) <= CPUInterruptSignalsDelayTime(16*2+15 downto 16*2); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_3) then 	u_data_o(15 downto 0) <= CPUInterruptSignalsDelayTime(16*3+15 downto 16*3); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_4) then 	u_data_o(15 downto 0) <= CPUInterruptSignalsDelayTime(16*4+15 downto 16*4); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_5) then 	u_data_o(15 downto 0) <= CPUInterruptSignalsDelayTime(16*5+15 downto 16*5); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_6) then 	u_data_o(15 downto 0) <= CPUInterruptSignalsDelayTime(16*6+15 downto 16*6); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_7) then 	u_data_o(15 downto 0) <= CPUInterruptSignalsDelayTime(16*7+15 downto 16*7); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_8) then 	u_data_o(15 downto 0) <= CPUInterruptSignalsDelayTime(16*8+15 downto 16*8); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_9) then 	u_data_o(15 downto 0) <= CPUInterruptSignalsDelayTime(16*9+15 downto 16*9); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_10) then 	u_data_o(15 downto 0) <= CPUInterruptSignalsDelayTime(16*10+15 downto 16*10); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_11) then 	u_data_o(15 downto 0) <= CPUInterruptSignalsDelayTime(16*11+15 downto 16*11); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_12) then 	u_data_o(15 downto 0) <= CPUInterruptSignalsDelayTime(16*12+15 downto 16*12); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_13) then 	u_data_o(15 downto 0) <= CPUInterruptSignalsDelayTime(16*13+15 downto 16*13); end if;
+			--debug
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_SelectedDebugInput_1) then 			u_data_o(8 downto 0) <= SelectedDebugInput(9*1-1 downto 9*0); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_SelectedDebugInput_2) then 			u_data_o(8 downto 0) <= SelectedDebugInput(9*2-1 downto 9*1); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_SelectedDebugInput_3) then 			u_data_o(8 downto 0) <= SelectedDebugInput(9*3-1 downto 9*2); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_SelectedDebugInput_4) then 			u_data_o(8 downto 0) <= SelectedDebugInput(9*4-1 downto 9*3); end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_Debug_ActualState) then 				u_data_o(NDebugSignalOutputs-1 downto 0) <= Debug_ActualState; end if;
 
+			--EventID
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_EventID_SetUserEventID) then 			u_data_o(31 downto 0) <= EventID_UserEventID; end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_EventID_ReadStatus) then 				u_data_o(7 downto 0) <= EventID_StatusCounter; end if;
 		end if;
 	end process;
 
@@ -352,6 +579,8 @@ begin
 	process(clock50, ckcsr, u_ad_reg)
 	begin
 		if (clock50'event and clock50 ='1') then
+			ResetVMEbusCPUsState <= '0';
+			SingleVMECPUsReadoutComplete_Local <= '0';
 			if (ckcsr='1' and u_ad_reg(11 downto 4)= BASE_TRIG_PreScaleFactor_CFD_OR ) then				PreScaleFactor_CFD_OR <= u_dat_in(3 downto 0); end if;
 			if (ckcsr='1' and u_ad_reg(11 downto 4)= BASE_TRIG_PreScaleFactor_LED1_OR ) then				PreScaleFactor_LED1_OR <= u_dat_in(3 downto 0); end if;
 			if (ckcsr='1' and u_ad_reg(11 downto 4)= BASE_TRIG_PreScaleFactor_LED2_OR ) then				PreScaleFactor_LED2_OR <= u_dat_in(3 downto 0); end if;
@@ -373,6 +602,36 @@ begin
 			if (ckcsr='1' and u_ad_reg(11 downto 4)= BASE_TRIG_PWOVETOSectorMask ) then					PWOVetoSectorMask <= u_dat_in(5 downto 0); end if;
 			
 			if (ckcsr='1' and u_ad_reg(11 downto 4)= BASE_TRIG_TAPSActualMode ) then						TAPSActualMode <= u_dat_in(0); end if;
+			--Readout / Total Dead Time
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_SelectIncludeCPU) ) then 				SelectIncludeCPU <= u_dat_in(NVMEbusChs-1 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_DisableTriggerSignal) ) then 			TAPSDisableTriggerSignal <= u_dat_in(0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_ResetVMEbusCPUsState) ) then 			ResetVMEbusCPUsState <= u_dat_in(0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_SingleVMECPUsReadoutComplete_Local) ) then SingleVMECPUsReadoutComplete_Local <= u_dat_in(0); end if;
+			--CPUs Interrupt Signal Delay
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_0) ) then CPUInterruptSignalsDelayTime(16*0+15 downto 16*0) <= u_dat_in(15 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_1) ) then CPUInterruptSignalsDelayTime(16*1+15 downto 16*1) <= u_dat_in(15 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_2) ) then CPUInterruptSignalsDelayTime(16*2+15 downto 16*2) <= u_dat_in(15 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_3) ) then CPUInterruptSignalsDelayTime(16*3+15 downto 16*3) <= u_dat_in(15 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_4) ) then CPUInterruptSignalsDelayTime(16*4+15 downto 16*4) <= u_dat_in(15 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_5) ) then CPUInterruptSignalsDelayTime(16*5+15 downto 16*5) <= u_dat_in(15 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_6) ) then CPUInterruptSignalsDelayTime(16*6+15 downto 16*6) <= u_dat_in(15 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_7) ) then CPUInterruptSignalsDelayTime(16*7+15 downto 16*7) <= u_dat_in(15 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_8) ) then CPUInterruptSignalsDelayTime(16*8+15 downto 16*8) <= u_dat_in(15 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_9) ) then CPUInterruptSignalsDelayTime(16*9+15 downto 16*9) <= u_dat_in(15 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_10) ) then CPUInterruptSignalsDelayTime(16*10+15 downto 16*10) <= u_dat_in(15 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_11) ) then CPUInterruptSignalsDelayTime(16*11+15 downto 16*11) <= u_dat_in(15 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_12) ) then CPUInterruptSignalsDelayTime(16*12+15 downto 16*12) <= u_dat_in(15 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_CPUInterruptSignalsDelayTime_13) ) then CPUInterruptSignalsDelayTime(16*13+15 downto 16*13) <= u_dat_in(15 downto 0); end if;
+			--debug
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_SelectedDebugInput_1) ) then 			SelectedDebugInput(9*1-1 downto 9*0) <= u_dat_in(8 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_SelectedDebugInput_2) ) then 			SelectedDebugInput(9*2-1 downto 9*1) <= u_dat_in(8 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_SelectedDebugInput_3) ) then 			SelectedDebugInput(9*3-1 downto 9*2) <= u_dat_in(8 downto 0); end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_SelectedDebugInput_4) ) then 			SelectedDebugInput(9*4-1 downto 9*3) <= u_dat_in(8 downto 0); end if;
+
+			--EventID
+			EventID_ResetSenderCounter <= '0';
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_EventID_SetUserEventID) ) then 		EventID_UserEventID <= u_dat_in; end if;
+			if ( (ckcsr = '1') and (u_ad_reg(11 downto 4) =  BASE_TRIG_EventID_ResetSending) ) then 			EventID_ResetSenderCounter <= u_dat_in(0); end if;
 		end if;
 	end process;
 	
