@@ -42,7 +42,7 @@ architecture RTL of trigger is
 
 	subtype sub_Address is std_logic_vector(11 downto 4);
 	constant BASE_TRIG_FIXED : sub_Address 									:= x"f0" ; -- r
-	constant TRIG_FIXED_Master : std_logic_vector(31 downto 0)  		:= x"13091206";
+	constant TRIG_FIXED_Master : std_logic_vector(31 downto 0)  		:= x"13091207";
 
 	constant BASE_TRIG_TAPSActualMode : sub_Address							:= x"30"; --r/w
 	constant BASE_TRIG_TAPSDebugSignals : sub_Address						:= x"31"; --r
@@ -188,17 +188,18 @@ architecture RTL of trigger is
 
 	COMPONENT DebugChSelector
 	PORT(
-		DebugSignalsIn : IN std_logic_vector(255 downto 0);
+		DebugSignalsIn : IN std_logic_vector(479 downto 0);
 		SelectedInput : IN std_logic_vector(8 downto 0);          
 		SelectedOutput : OUT std_logic
 		);
 	END COMPONENT;
 
 	constant NDebugSignalOutputs : integer := 4;
-	signal DebugSignals : std_logic_vector(255 downto 0);
+	signal DebugSignals : std_logic_vector(479 downto 0);
 	signal SelectedDebugInput : std_logic_vector(9*NDebugSignalOutputs-1 downto 0);
 	signal Debug_ActualState : std_logic_vector(NDebugSignalOutputs-1 downto 0);
-	
+
+	signal Inter_ToScalerOut : std_logic_vector(95 downto 0);
 	------------------------------------------------------------------------------
 
 
@@ -296,12 +297,12 @@ begin
 	PWO_Veto_SectorORs <= Pre_PWO_Veto_SectorORs and PWOVetoSectorMask;
 
 	--To Scalers
-	ToScalerOut(5+6*0+32 downto 0+6*0+32) <= CFD_SectorORs;
-	ToScalerOut(5+6*1+32 downto 0+6*1+32) <= LED1_SectorORs;
-	ToScalerOut(5+6*2+32 downto 0+6*2+32) <= LED2_SectorORs;
-	ToScalerOut(5+6*3+32 downto 0+6*3+32) <= VETO_SectorORs;
-	ToScalerOut(5+6*4+32 downto 0+6*4+32) <= PWO_SectorORs;
-	ToScalerOut(5+6*5+32 downto 0+6*5+32) <= PWO_Veto_SectorORs;
+	Inter_ToScalerOut(5+6*0+32 downto 0+6*0+32) <= CFD_SectorORs;
+	Inter_ToScalerOut(5+6*1+32 downto 0+6*1+32) <= LED1_SectorORs;
+	Inter_ToScalerOut(5+6*2+32 downto 0+6*2+32) <= LED2_SectorORs;
+	Inter_ToScalerOut(5+6*3+32 downto 0+6*3+32) <= VETO_SectorORs;
+	Inter_ToScalerOut(5+6*4+32 downto 0+6*4+32) <= PWO_SectorORs;
+	Inter_ToScalerOut(5+6*5+32 downto 0+6*5+32) <= PWO_Veto_SectorORs;
 
 	------------------------------------------------------------------------------------------------
 	-- Multiplicity and BigOR logic
@@ -391,38 +392,44 @@ begin
 
 	
 	-- output to scalers
-	ToScalerOut(0) <= BusyAllCPUs_Signal;
-	ToScalerOut(1) <= CBInterrupt;
-	ToScalerOut(2) <= CFD_TAPSOR;
-	ToScalerOut(3) <= LED1_TAPSOR;
-	ToScalerOut(4) <= LED2_TAPSOR;
-	ToScalerOut(5) <= CFD_TAPSM2Plus;
-	ToScalerOut(6) <= LED1_TAPSM2Plus;
-	ToScalerOut(7) <= LED2_TAPSM2Plus;
-	ToScalerOut(8) <= PulserOutput;
-	ToScalerOut(9) <= CFD_TAPSOR_PreScaled;
-	ToScalerOut(10) <= LED1_TAPSOR_PreScaled;
-	ToScalerOut(11) <= LED2_TAPSOR_PreScaled;
-	ToScalerOut(12) <= CFD_TAPSM2Plus_PreScaled;
-	ToScalerOut(13) <= LED1_TAPSM2Plus_PreScaled;
-   ToScalerOut(14) <= LED2_TAPSM2Plus_PreScaled;
-	ToScalerOut(15) <= PulserOutput_PreScaled;
-	ToScalerOut(16) <= TAPS_L1_Trigger;
-	ToScalerOut(17) <= TAPS_L1_Interrupt;
-	ToScalerOut(18) <= TAPSInterrupt;
-	ToScalerOut(19) <= TAPSActualMode;
-	ToScalerOut(20) <= PWO_Veto_TAPSM2Plus_PreScaled;
-	ToScalerOut(21) <= Veto_TAPSOR;
-	ToScalerOut(22) <= Veto_TAPSM2Plus;
-	ToScalerOut(23) <= Veto_TAPSOR_PreScaled;
-	ToScalerOut(24) <= Veto_TAPSM2Plus_PreScaled;
-	ToScalerOut(25) <= PWO_TAPSOR;
-	ToScalerOut(26) <= PWO_Veto_TAPSOR;
-	ToScalerOut(27) <= PWO_TAPSM2Plus;
-	ToScalerOut(28) <= PWO_Veto_TAPSM2Plus;
-	ToScalerOut(29) <= PWO_TAPSOR_PreScaled;
-	ToScalerOut(30) <= PWO_Veto_TAPSOR_PreScaled;
-	ToScalerOut(31) <= PWO_TAPSM2Plus_PreScaled;
+	Inter_ToScalerOut(0) <= BusyAllCPUs_Signal;
+	Inter_ToScalerOut(1) <= CBInterrupt;
+	Inter_ToScalerOut(2) <= CFD_TAPSOR;
+	Inter_ToScalerOut(3) <= LED1_TAPSOR;
+	Inter_ToScalerOut(4) <= LED2_TAPSOR;
+	Inter_ToScalerOut(5) <= CFD_TAPSM2Plus;
+	Inter_ToScalerOut(6) <= LED1_TAPSM2Plus;
+	Inter_ToScalerOut(7) <= LED2_TAPSM2Plus;
+	Inter_ToScalerOut(8) <= PulserOutput;
+	Inter_ToScalerOut(9) <= CFD_TAPSOR_PreScaled;
+	Inter_ToScalerOut(10) <= LED1_TAPSOR_PreScaled;
+	Inter_ToScalerOut(11) <= LED2_TAPSOR_PreScaled;
+	Inter_ToScalerOut(12) <= CFD_TAPSM2Plus_PreScaled;
+	Inter_ToScalerOut(13) <= LED1_TAPSM2Plus_PreScaled;
+   Inter_ToScalerOut(14) <= LED2_TAPSM2Plus_PreScaled;
+	Inter_ToScalerOut(15) <= PulserOutput_PreScaled;
+	Inter_ToScalerOut(16) <= TAPS_L1_Trigger;
+	Inter_ToScalerOut(17) <= TAPS_L1_Interrupt;
+	Inter_ToScalerOut(18) <= TAPSInterrupt;
+	Inter_ToScalerOut(19) <= TAPSActualMode;
+	Inter_ToScalerOut(20) <= PWO_Veto_TAPSM2Plus_PreScaled;
+	Inter_ToScalerOut(21) <= Veto_TAPSOR;
+	Inter_ToScalerOut(22) <= Veto_TAPSM2Plus;
+	Inter_ToScalerOut(23) <= Veto_TAPSOR_PreScaled;
+	Inter_ToScalerOut(24) <= Veto_TAPSM2Plus_PreScaled;
+	Inter_ToScalerOut(25) <= PWO_TAPSOR;
+	Inter_ToScalerOut(26) <= PWO_Veto_TAPSOR;
+	Inter_ToScalerOut(27) <= PWO_TAPSM2Plus;
+	Inter_ToScalerOut(28) <= PWO_Veto_TAPSM2Plus;
+	Inter_ToScalerOut(29) <= PWO_TAPSOR_PreScaled;
+	Inter_ToScalerOut(30) <= PWO_Veto_TAPSOR_PreScaled;
+	Inter_ToScalerOut(31) <= PWO_TAPSM2Plus_PreScaled;
+	
+	ToScalerOut <= Inter_ToScalerOut;
+	
+	DebugSignals(4*32-1 downto 0) <= trig_in;
+	DebugSignals(4*32) <= NIM_IN;
+	DebugSignals(200+95 downto 200) <= Inter_ToScalerOut;
 	
 	TAPSDebugSignals(0) <= BusyAllCPUs_Signal;
 	TAPSDebugSignals(1) <= CBInterrupt;
@@ -457,10 +464,10 @@ begin
 	ExpTrigger_Delayed_Local <= CPUInterruptSignalsDelayed(13);
 
 	Inst_CPUsLiveTime_Scalers : for i in 0 to NVMEbusChs-1 generate begin
-		ToScalerOut(68+i) <= clock1 when SingleVMECPUsBusy(i) = '0' else '0';
+		Inter_ToScalerOut(68+i) <= clock1 when SingleVMECPUsBusy(i) = '0' else '0';
 	end generate;
-	ToScalerOut(68+NVMEbusChs) <= clock1 when TAPSTotalDeadTime_Signal = '0' else '0';
-	ToScalerOut(68+NVMEbusChs+1) <= clock1;
+	Inter_ToScalerOut(68+NVMEbusChs) <= clock1 when TAPSTotalDeadTime_Signal = '0' else '0';
+	Inter_ToScalerOut(68+NVMEbusChs+1) <= clock1;
 
 
 	------------------------------------------------------------------------------------------------
@@ -468,7 +475,7 @@ begin
 	------------------------------------------------------------------------------------------------
 	-- Total Dead Time
 	TAPSTotalDeadTime_Signal <= TAPSDisableTriggerSignal or BusyAllCPUs_Signal;
-	DebugSignals(65) <= TAPSTotalDeadTime_Signal;
+	DebugSignals(140) <= TAPSTotalDeadTime_Signal;
 
 
 	-------------------------------------------------------------------------------------------------
