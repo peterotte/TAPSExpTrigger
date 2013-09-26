@@ -523,8 +523,7 @@ begin ---- BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN -------
 -- scaler i/o
 	--scal_in(32*6-1 downto 0) <= vhdc_in( 32*6-1 downto 0);
 	scal_in1(95 downto 0) <= TAPSExtraScaler;
-	scal_in2(67 downto 0) <= "0000"&PGIO1X&TAPSExtraScaler(31 downto 0); --Vorher für das SlowControl genutzt.
-	scal_in2(95 downto 68) <= (others => '0');
+	scal_in2(95 downto 0) <= TAPSExtraScaler;
 	
 	
 -- trigger i/o
