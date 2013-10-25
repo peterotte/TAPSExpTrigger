@@ -77,7 +77,7 @@ end vuprom_TAPSMaster;
 
 
 architecture rtl of vuprom_TAPSMaster is
-
+   attribute keep : string;
 	--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
 	--     VME access 
 	--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
@@ -232,7 +232,8 @@ architecture rtl of vuprom_TAPSMaster is
 	signal scal_data_o1, scal_data_o2 : std_logic_vector(31 downto 0);
 	constant SCCH: integer := 96;
 	constant SCBit: integer := 32;
-	signal scal_in1, scal_in2 : std_logic_vector(SCCH-1 downto 0);
+	signal scal_in1 : std_logic_vector(SCCH-1 downto 0);
+	attribute keep of scal_in1: signal is "TRUE";
 	signal scal_oecsr1, scal_oecsr2 : std_logic;
 	signal scal_ckcsr1, scal_ckcsr2 : std_logic;
 	
@@ -523,7 +524,6 @@ begin ---- BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN -------
 -- scaler i/o
 	--scal_in(32*6-1 downto 0) <= vhdc_in( 32*6-1 downto 0);
 	scal_in1(95 downto 0) <= TAPSExtraScaler;
-	scal_in2(95 downto 0) <= TAPSExtraScaler;
 	
 	
 -- trigger i/o
@@ -568,7 +568,7 @@ begin ---- BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN  BEGIN -------
 									);									
 	scaler_2: scaler port map (
 									clkl=>clk50, clkh => clk100,
-									scal_in=>scal_in2,
+									scal_in=>scal_in1,
 									u_ad_reg=>u_ad_reg(11 downto 2), 
 									u_dat_in=>u_dat_in, 
 									u_data_o=>scal_data_o2,

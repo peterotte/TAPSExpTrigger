@@ -42,7 +42,7 @@ architecture RTL of trigger is
 
 	subtype sub_Address is std_logic_vector(11 downto 4);
 	constant BASE_TRIG_FIXED : sub_Address 									:= x"f0" ; -- r
-	constant TRIG_FIXED_Master : std_logic_vector(31 downto 0)  		:= x"13092608";
+	constant TRIG_FIXED_Master : std_logic_vector(31 downto 0)  		:= x"13102509";
 
 	constant BASE_TRIG_TAPSActualMode : sub_Address							:= x"30"; --r/w
 	constant BASE_TRIG_TAPSDebugSignals : sub_Address						:= x"31"; --r
@@ -489,6 +489,7 @@ begin
 		);
 	end generate;
 	trig_out_INOUT2(26+NDebugSignalOutputs-1 downto 26) <= Debug_ActualState;
+	Inter_ToScalerOut(84+3 downto 84) <= Debug_ActualState;
 	-------------------------------------------------------------------------------------------------
 
 

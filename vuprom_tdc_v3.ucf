@@ -668,3 +668,7 @@ NET "CKFPL" TNM_NET = CKFPL;
 TIMESPEC TS_CKFPL = PERIOD "CKFPL" 10 ns;
 #NET "trigger_1/ClockCounter_22" TNM_NET = trigger_1/ClockCounter_22;
 #TIMESPEC TS_trigger_1_ClockCounter_22 = PERIOD "trigger_1/ClockCounter_22" 20 ns HIGH 50%;
+
+#For Scalers start
+NET "scal_in1*" TIG;
+#For Scalers End
