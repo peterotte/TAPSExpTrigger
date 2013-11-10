@@ -42,7 +42,7 @@ architecture RTL of trigger is
 
 	subtype sub_Address is std_logic_vector(11 downto 4);
 	constant BASE_TRIG_FIXED : sub_Address 									:= x"f0" ; -- r
-	constant TRIG_FIXED_Master : std_logic_vector(31 downto 0)  		:= x"13102509";
+	constant TRIG_FIXED_Master : std_logic_vector(31 downto 0)  		:= x"1311100a";
 
 	constant BASE_TRIG_TAPSActualMode : sub_Address							:= x"30"; --r/w
 	constant BASE_TRIG_TAPSDebugSignals : sub_Address						:= x"31"; --r
@@ -207,7 +207,7 @@ architecture RTL of trigger is
 	-- EventID Sender
 	signal EventID_UserEventID : std_logic_vector(31 downto 0);
 	signal EventID_ResetSenderCounter : std_logic;
-	signal EventID_StatusCounter : std_logic_vector(7 downto 0);
+	signal EventID_StatusCounter : std_logic_vector(6 downto 0);
 	signal EventID_OutputPin, EventID_FromExpTrigger : std_logic;
 
 	COMPONENT EventIDSender
@@ -215,7 +215,7 @@ architecture RTL of trigger is
 		UserEventID : IN std_logic_vector(31 downto 0);
 		ResetSenderCounter : IN std_logic;
 		clock50 : IN std_logic;          
-		StatusCounter : OUT std_logic_vector(7 downto 0);
+		StatusCounter : OUT std_logic_vector(6 downto 0);
 		OutputPin : OUT std_logic
 		);
 	END COMPONENT;
@@ -575,7 +575,7 @@ begin
 
 			--EventID
 			if (u_ad_reg(11 downto 4) =  BASE_TRIG_EventID_SetUserEventID) then 			u_data_o(31 downto 0) <= EventID_UserEventID; end if;
-			if (u_ad_reg(11 downto 4) =  BASE_TRIG_EventID_ReadStatus) then 				u_data_o(7 downto 0) <= EventID_StatusCounter; end if;
+			if (u_ad_reg(11 downto 4) =  BASE_TRIG_EventID_ReadStatus) then 				u_data_o(6 downto 0) <= EventID_StatusCounter; end if;
 		end if;
 	end process;
 
