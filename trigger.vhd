@@ -42,7 +42,7 @@ architecture RTL of trigger is
 
 	subtype sub_Address is std_logic_vector(11 downto 4);
 	constant BASE_TRIG_FIXED : sub_Address 									:= x"f0" ; -- r
-	constant TRIG_FIXED_Master : std_logic_vector(31 downto 0)  		:= x"1311100a";
+	constant TRIG_FIXED_Master : std_logic_vector(31 downto 0)  		:= x"1311120b";
 
 	constant BASE_TRIG_TAPSActualMode : sub_Address							:= x"30"; --r/w
 	constant BASE_TRIG_TAPSDebugSignals : sub_Address						:= x"31"; --r
@@ -350,7 +350,7 @@ begin
 		
 	------------------------------------------------------------------------------------------------
 	-- Outputs
-	GateShortener_NIMOut : GateShortener GENERIC MAP (NCh => 4) PORT MAP (LED2_TAPSM2Plus, LED2_TAPSM2Plus_Short, clock200);
+	GateShortener_NIMOut : GateShortener GENERIC MAP (NCh => 40) PORT MAP (LED2_TAPSM2Plus, LED2_TAPSM2Plus_Short, clock200); --NCh ==4 -> Length 4*clock+1*clock as jitter
 
 	trig_out_OUT1(0) <= CFD_TAPSOR;
 	trig_out_OUT1(1) <= LED1_TAPSOR;
@@ -379,7 +379,7 @@ begin
 	trig_out_INOUT4(18+5 downto 18) <= PWO_Veto_SectorORs;
 	trig_out_INOUT4(27 downto 24) <= Debug_ActualState;
 	trig_out_INOUT4(28) <= TAPSInterrupt;
-	trig_out_INOUT4(29) <= LED2_TAPSM2Plus;
+	trig_out_INOUT4(29) <= LED2_TAPSM2Plus_Short;
 	trig_out_INOUT4(30) <= PulserOutput_PreScaled_ExtDelayed;
 	trig_out_INOUT4(31) <= BusyAllCPUs_Signal;
 
